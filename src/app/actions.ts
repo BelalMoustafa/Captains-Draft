@@ -301,6 +301,10 @@ export async function assignManagers(roomId: string, lang: string = 'en') {
   const responseText = await generateContentWithRetry(prompt)
   const response = JSON.parse(responseText)
   
+  if (!response.player1Manager || !response.player2Manager) {
+    throw new Error("AI returned invalid JSON structure for managers")
+  }
+  
   const [updatedUser1, updatedUser2] = await prisma.$transaction([
     prisma.user.update({
       where: { id: user1.id },

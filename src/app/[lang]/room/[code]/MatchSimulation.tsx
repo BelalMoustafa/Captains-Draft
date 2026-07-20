@@ -15,6 +15,11 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
   const user1 = users[0]
   const user2 = users[1]
 
+  const parseManager = (managerStr: string) => {
+    if (!managerStr || managerStr === "null") return { name: "Pending", tier: "Pending", tacticalStyle: "Pending" }
+    try { return JSON.parse(managerStr) } catch { return { name: "Error", tier: "Error", tacticalStyle: "Error" } }
+  }
+
   useEffect(() => {
     const channel = pusherClient.subscribe(`room-${room.code}`)
     
@@ -84,7 +89,7 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
             {/* Team 1 */}
             <div className={`flex-1 p-12 text-center flex flex-col items-center justify-center space-y-4 ${result.winner === user1.name ? 'bg-amber-50/50' : ''}`}>
               <h2 className="text-4xl font-black text-slate-800">{user1.name}</h2>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{JSON.parse(user1.manager).name}</p>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{parseManager(user1.manager).name}</p>
             </div>
 
             {/* Score */}
@@ -97,7 +102,7 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
             {/* Team 2 */}
             <div className={`flex-1 p-12 text-center flex flex-col items-center justify-center space-y-4 ${result.winner === user2.name ? 'bg-amber-50/50' : ''}`}>
               <h2 className="text-4xl font-black text-slate-800">{user2.name}</h2>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{JSON.parse(user2.manager).name}</p>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{parseManager(user2.manager).name}</p>
             </div>
 
           </div>

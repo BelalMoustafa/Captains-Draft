@@ -62,6 +62,8 @@
     "title": "Assign Managers",
     "subtitle": "Gemini will assign managers based on remaining budgets.",
     "reveal": "Reveal Managers",
+    "revealing": "Revealing...",
+    "managerText": "Manager",
     "waitingHost": "Waiting for host to assign managers...",
     "revealTitle": "Manager Reveal",
     "revealSub": "Your squad's tactical mastermind has been chosen.",
