@@ -12,8 +12,10 @@ export default function ManagerReveal({ room, currentUser, users: initialUsers, 
   const [isPendingAssign, startTransitionAssign] = useTransition()
   const [isPendingSimulate, startTransitionSimulate] = useTransition()
 
-  const me = users.find((u: any) => u.id === currentUser.id)
-  const opponent = users.find((u: any) => u.id !== currentUser.id)
+  const players = users.filter((u: any) => u.role !== 'spectator')
+  const isSpectator = currentUser.role === 'spectator'
+  const me = isSpectator ? players[0] : players.find((u: any) => u.id === currentUser.id)
+  const opponent = isSpectator ? players[1] : players.find((u: any) => u.id !== currentUser.id)
 
   const isAssigned = me?.manager && me.manager !== "null" && opponent?.manager && opponent.manager !== "null"
 

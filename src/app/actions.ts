@@ -35,7 +35,8 @@ export async function createRoom(lang: string, formData: FormData) {
     const name = formData.get('name') as string
     const format = parseInt(formData.get('format') as string, 10)
     const budgetInput = parseInt(formData.get('budget') as string, 10)
-  const budget = budgetInput * 1000000 // Convert to actual number value
+    const difficulty = formData.get('difficulty') as string || 'normal'
+    const budget = budgetInput * 1000000 // Convert to actual number value
 
     if (!name || isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
 
@@ -44,7 +45,7 @@ export async function createRoom(lang: string, formData: FormData) {
     const room = await prisma.room.create({
       data: {
         code,
-        settings: JSON.stringify({ format, budget }),
+        settings: JSON.stringify({ format, budget, difficulty }),
       }
     })
 
@@ -82,8 +83,13 @@ export async function joinRoom(lang: string, formData: FormData) {
     })
 
     if (!room) throw new Error('Room not found')
-    if (room.users.length >= 2) throw new Error('Room is full')
-    if (room.status !== 'waiting') throw new Error('Game already started')
+    
+    let role = 'player'
+    const playersCount = room.users.filter((u: any) => u.role !== 'spectator').length
+    
+    if (playersCount >= 2 || room.status !== 'waiting') {
+      role = 'spectator'
+    }
 
     const settings = JSON.parse(room.settings)
 
@@ -91,7 +97,7 @@ export async function joinRoom(lang: string, formData: FormData) {
       data: {
         roomId: room.id,
         name,
-        role: 'player',
+        role,
         budgetLeft: settings.budget,
         squad: JSON.stringify([]),
       }
@@ -182,7 +188,15 @@ export async function generateDraftPool(roomId: string, lang: string = 'en') {
   
   const settings = JSON.parse(room.settings)
   
-  const prompt = `Generate a draft pool for a ${settings.format}-a-side football game. Return a JSON array of objects. Each object must contain 'round', 'visiblePlayer' (name, position, club, rating), and 'hiddenPlayer' (name, position, club, rating). Use a mix of top-tier, mid-tier, and retired legends from top 5 European leagues and Egyptian Premier League. Do not output anything other than valid JSON. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
+  const difficultyStr = settings.difficulty === 'veryHard' ? "EXTREMELY DIFFICULT and obscure players, deep cuts from history" :
+                        settings.difficulty === 'hard' ? "hard to guess players, mix of obscure current players and legends" :
+                        settings.difficulty === 'medium' ? "average difficulty players, mix of stars and average players" :
+                        "very famous, easy to guess top-tier players and legends";
+
+  const prompt = `Generate a draft pool for a ${settings.format}-a-side football game. Return a JSON array of objects. Each object must contain 'round', 'visiblePlayer' (name, position, club, rating), and 'hiddenPlayer' (name, position, club, rating). 
+Difficulty Level: ${difficultyStr}. 
+CRITICAL RULE: You MUST include players from ALL of these categories across the draft: Top 5 European Leagues, Famous National Teams, Egyptian Premier League, Saudi Pro League, and Retired Legends. 
+Make sure the players match the requested difficulty level! Do not output anything other than valid JSON. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
   
   const draftPool = await generateJsonWithRetry(prompt)
   
@@ -291,8 +305,9 @@ export async function assignManagers(roomId: string, lang: string = 'en') {
   const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
   if (!room) throw new Error('Room not found')
   
-  const user1 = room.users[0]
-  const user2 = room.users[1]
+  const players = room.users.filter((u: any) => u.role !== 'spectator')
+  const user1 = players[0]
+  const user2 = players[1]
   
   if (user1.manager && user2.manager) return
   
@@ -332,8 +347,9 @@ export async function simulateMatch(roomId: string, lang: string = 'en') {
   const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
   if (!room) throw new Error('Room not found')
   
-  const user1 = room.users[0]
-  const user2 = room.users[1]
+  const players = room.users.filter((u: any) => u.role !== 'spectator')
+  const user1 = players[0]
+  const user2 = players[1]
   
   const settings = JSON.parse(room.settings)
   if (settings.matchResult) return // Already simulated

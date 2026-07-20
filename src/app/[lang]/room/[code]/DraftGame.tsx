@@ -11,10 +11,14 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
   const [settings, setSettings] = useState(JSON.parse(room.settings))
   const [users, setUsers] = useState(initialUsers)
   const [isPending, startTransition] = useTransition()
-  const [actionLoading, setActionLoading] = useState(false) // Keep local loading for pusher latency if needed, or rely purely on isPending
+  const [actionLoading, setActionLoading] = useState(false)
+  const [customBid, setCustomBid] = useState<string>('')
 
-  const opponent = users.find((u: any) => u.id !== currentUser.id)
-  const me = users.find((u: any) => u.id === currentUser.id)
+  const players = users.filter((u: any) => u.role !== 'spectator')
+  const isSpectator = currentUser.role === 'spectator'
+  
+  const me = isSpectator ? players[0] : players.find((u: any) => u.id === currentUser.id)
+  const opponent = isSpectator ? players[1] : players.find((u: any) => u.id !== currentUser.id)
 
   useEffect(() => {
     const channel = pusherClient.subscribe(`room-${room.code}`)
@@ -36,6 +40,13 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
       pusherClient.unsubscribe(`room-${room.code}`)
     }
   }, [room.code])
+
+  const currentBidLevel = settings?.bidding?.currentBid || 0;
+  const minValidBidLevel = currentBidLevel > 0 ? currentBidLevel + 100000 : 100000;
+  
+  useEffect(() => {
+    setCustomBid((minValidBidLevel / 1000000).toString())
+  }, [minValidBidLevel])
 
   const handleGenerate = () => {
     startTransition(async () => {
@@ -98,7 +109,6 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
 
   // For the custom bid input
   const minValidBid = currentBid > 0 ? currentBid + 100000 : 100000; // Minimum increment of 0.1M
-  const [customBid, setCustomBid] = useState<string>((minValidBid / 1000000).toString())
 
   const handleCustomBidSubmit = () => {
     const amount = parseFloat(customBid) * 1000000
@@ -211,11 +221,11 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
                 type="number" 
                 step="0.1"
                 min={(minValidBid / 1000000).toString()}
-                max={(me.budgetLeft / 1000000).toString()}
+                max={(me?.budgetLeft / 1000000).toString()}
                 value={customBid}
                 onChange={(e) => setCustomBid(e.target.value)}
                 className="flex h-12 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                disabled={!isMyTurn || isPending}
+                disabled={!isMyTurn || isPending || isSpectator}
                 placeholder="Bid in Millions (e.g. 1.5)"
               />
             </div>
@@ -225,7 +235,7 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
                 size="lg"
                 variant="outline"
                 className="w-1/3 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold disabled:opacity-50"
-                disabled={!isMyTurn || isPending}
+                disabled={!isMyTurn || isPending || isSpectator}
                 isLoading={isPending && settings.bidding.currentBidderId === currentUser.id} 
                 onClick={handleFold}
               >
@@ -237,9 +247,10 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
                 disabled={
                   !isMyTurn || 
                   isPending || 
+                  isSpectator ||
                   isNaN(parseFloat(customBid)) || 
                   parseFloat(customBid) * 1000000 <= currentBid ||
-                  parseFloat(customBid) * 1000000 > me.budgetLeft
+                  parseFloat(customBid) * 1000000 > me?.budgetLeft
                 }
                 isLoading={isPending && settings.bidding.currentBidderId !== currentUser.id}
                 onClick={() => handleExactBid(parseFloat(customBid) * 1000000)}

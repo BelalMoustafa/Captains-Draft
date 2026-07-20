@@ -52,6 +52,15 @@ export default function LobbyForm({ lang, dict }: { lang: string, dict: any }) {
                 </select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="difficulty" className="text-slate-600 font-semibold">{dict.difficulty}</Label>
+                <select id="difficulty" name="difficulty" className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" required>
+                  <option value="normal">{dict.difficultyNormal}</option>
+                  <option value="medium">{dict.difficultyMedium}</option>
+                  <option value="hard">{dict.difficultyHard}</option>
+                  <option value="veryHard">{dict.difficultyVeryHard}</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="budget" className="text-slate-600 font-semibold">{dict.budget}</Label>
                 <Input id="budget" name="budget" type="number" defaultValue="100" min="50" max="500" required className="bg-slate-50 border-slate-200" />
               </div>

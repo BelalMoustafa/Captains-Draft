@@ -12,8 +12,9 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
   const [result, setResult] = useState<any>(JSON.parse(room.settings).matchResult || null)
   const [isPending, startTransition] = useTransition()
 
-  const user1 = users[0]
-  const user2 = users[1]
+  const players = users.filter((u: any) => u.role !== 'spectator')
+  const user1 = players[0]
+  const user2 = players[1]
 
   const parseManager = (managerStr: string) => {
     if (!managerStr || managerStr === "null") return { name: "Pending", tier: "Pending", tacticalStyle: "Pending" }

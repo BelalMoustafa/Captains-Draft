@@ -12,7 +12,12 @@
     "roomCode": "كود الغرفة",
     "codePlaceholder": "مثال AB12CD",
     "joinGame": "انضمام",
-    "joining": "جاري الانضمام..."
+    "joining": "جاري الانضمام...",
+    "difficulty": "مستوى الصعوبة",
+    "difficultyNormal": "عادي",
+    "difficultyMedium": "متوسط",
+    "difficultyHard": "صعب",
+    "difficultyVeryHard": "صعب جداً"
   },
   "room": {
     "roomCode": "كود الغرفة",
@@ -20,7 +25,9 @@
     "player2": "اللاعب الثاني",
     "waiting": "في الانتظار...",
     "startRps": "ابدأ حجرة ورقة مقص",
-    "waitingHostRps": "في انتظار المضيف للبدء..."
+    "waitingHostRps": "في انتظار المضيف للبدء...",
+    "spectators": "المتفرجون",
+    "spectatorWait": "أنت تشاهد هذه الغرفة كمتفرج."
   },
   "rps": {
     "title": "حجرة، ورقة، مقص!",

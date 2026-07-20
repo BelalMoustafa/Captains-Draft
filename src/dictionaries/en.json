@@ -12,7 +12,12 @@
     "roomCode": "Room Code",
     "codePlaceholder": "e.g. AB12CD",
     "joinGame": "Join Game",
-    "joining": "Joining..."
+    "joining": "Joining...",
+    "difficulty": "Difficulty",
+    "difficultyNormal": "Normal",
+    "difficultyMedium": "Medium",
+    "difficultyHard": "Hard",
+    "difficultyVeryHard": "Very Hard"
   },
   "room": {
     "roomCode": "Room Code",
@@ -20,7 +25,9 @@
     "player2": "Player 2",
     "waiting": "Waiting...",
     "startRps": "Start Rock-Paper-Scissors",
-    "waitingHostRps": "Waiting for host to start..."
+    "waitingHostRps": "Waiting for host to start...",
+    "spectators": "Spectators",
+    "spectatorWait": "You are spectating this room."
   },
   "rps": {
     "title": "Rock, Paper, Scissors!",

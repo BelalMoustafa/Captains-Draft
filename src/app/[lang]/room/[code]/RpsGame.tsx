@@ -12,7 +12,18 @@ export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
   const [result, setResult] = useState<{ type: string, winnerId?: string } | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const opponent = users.find((u: any) => u.id !== currentUser.id)
+  const isSpectator = currentUser.role === 'spectator'
+  const players = users.filter((u: any) => u.role !== 'spectator')
+  const opponent = players.find((u: any) => u.id !== currentUser.id)
+
+  if (isSpectator) {
+    return (
+      <Card className="w-full max-w-3xl border-none shadow-2xl bg-white/90 backdrop-blur-md overflow-hidden text-center p-12">
+        <h2 className="text-3xl font-black text-slate-800 mb-4">{dict.spectators}</h2>
+        <p className="text-slate-500 text-lg">{dict.spectatorWait}</p>
+      </Card>
+    )
+  }
 
   useEffect(() => {
     const channel = pusherClient.subscribe(`room-${room.code}`)
