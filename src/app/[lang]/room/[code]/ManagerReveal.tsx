@@ -41,6 +41,8 @@ export default function ManagerReveal({ room, currentUser, users: initialUsers, 
     })
   }
 
+  const formatMoney = (val: number) => `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+
   return (
     <div className="w-full max-w-5xl flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-700">
       
