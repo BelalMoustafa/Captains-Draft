@@ -94,6 +94,27 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
   const currentBid = settings.bidding.currentBid
   const currentBidder = users.find((u:any) => u.id === settings.bidding.currentBidderId)
 
+  const formatMoney = (val: number) => `${(val / 1000000).toFixed(1).replace(/\.0$/, '')}M`
+
+  // For the custom bid input
+  const minValidBid = currentBid > 0 ? currentBid + 100000 : 100000; // Minimum increment of 0.1M
+  const [customBid, setCustomBid] = useState<string>((minValidBid / 1000000).toString())
+
+  const handleCustomBidSubmit = () => {
+    const amount = parseFloat(customBid) * 1000000
+    if (!isNaN(amount) && amount > currentBid && amount <= me.budgetLeft) {
+      handleBid(amount - currentBid) // handleBid expects amount to add? 
+      // Wait, handleBid does `const newBid = (settings.bidding.currentBid || 0) + amount; await placeBid(newBid)`
+      // I should update handleBid to accept exact amount! Let's write handleExactBid
+    }
+  }
+
+  const handleExactBid = (exactAmount: number) => {
+    startTransition(async () => {
+      await placeBid(room.id, currentUser.id, exactAmount)
+    })
+  }
+
   return (
     <div className="w-full max-w-6xl flex flex-col md:flex-row gap-6">
       
@@ -103,7 +124,7 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
           <p className="text-sm font-bold text-slate-400 uppercase">{dict.yourSquad}</p>
           <h3 className="text-xl font-bold text-slate-800">{me.name}</h3>
           <div className={`flex items-center text-emerald-600 font-black text-2xl mt-2 ${lang === 'ar' ? 'justify-end' : ''}`}>
-            <Coins className={`w-6 h-6 ${lang === 'ar' ? 'ml-1' : 'mr-1'}`} /> {me.budgetLeft}M
+            <Coins className={`w-6 h-6 ${lang === 'ar' ? 'ml-1' : 'mr-1'}`} /> {formatMoney(me.budgetLeft)}
           </div>
         </CardHeader>
         <CardContent className="p-4 space-y-2">
@@ -146,33 +167,84 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
             <div>
               <p className="text-sm font-bold text-slate-400 uppercase mb-1">{dict.currentBid}</p>
               <div className="text-6xl font-black text-slate-800 tracking-tighter">
-                {currentBid > 0 ? `${currentBid}M` : '0M'}
+                {currentBid > 0 ? formatMoney(currentBid) : '0M'}
               </div>
               <p className="text-sm font-semibold text-indigo-600 mt-2">
                 {currentBidder ? `${dict.by} ${currentBidder.name}` : dict.waitingOpeningBid}
               </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className={`flex justify-center gap-4 ${lang === 'ar' ? 'flex-row-reverse' : ''}`}>
+            {/* Quick Bids */}
+            <div className={`flex justify-center gap-2 ${lang === 'ar' ? 'flex-row-reverse' : ''}`}>
+               <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 font-bold disabled:opacity-50"
+                disabled={!isMyTurn || isPending || me.budgetLeft < currentBid + 500000}
+                onClick={() => handleExactBid(currentBid + 500000)}
+              >
+                +0.5M
+              </Button>
+               <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 font-bold disabled:opacity-50"
+                disabled={!isMyTurn || isPending || me.budgetLeft < currentBid + 1000000}
+                onClick={() => handleExactBid(currentBid + 1000000)}
+              >
+                +1M
+              </Button>
+               <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 font-bold disabled:opacity-50"
+                disabled={!isMyTurn || isPending || me.budgetLeft < currentBid + 2000000}
+                onClick={() => handleExactBid(currentBid + 2000000)}
+              >
+                +2M
+              </Button>
+            </div>
+
+            {/* Custom Bid Input & Actions */}
+            <div className="flex items-center gap-2 mt-4">
+              <input 
+                type="number" 
+                step="0.1"
+                min={(minValidBid / 1000000).toString()}
+                max={(me.budgetLeft / 1000000).toString()}
+                value={customBid}
+                onChange={(e) => setCustomBid(e.target.value)}
+                className="flex h-12 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-center font-bold outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                disabled={!isMyTurn || isPending}
+                placeholder="Bid in Millions (e.g. 1.5)"
+              />
+            </div>
+
+            <div className={`flex justify-center gap-4 mt-2 ${lang === 'ar' ? 'flex-row-reverse' : ''}`}>
               <Button
                 size="lg"
                 variant="outline"
                 className="w-1/3 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold disabled:opacity-50"
                 disabled={!isMyTurn || isPending}
-                isLoading={isPending && settings.bidding.currentBidderId === currentUser.id} // Approximation for fold loading vs bid loading
+                isLoading={isPending && settings.bidding.currentBidderId === currentUser.id} 
                 onClick={handleFold}
               >
                 {dict.fold}
               </Button>
               <Button
                 size="lg"
-                className="w-1/3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-200 disabled:opacity-50"
-                disabled={!isMyTurn || isPending || me.budgetLeft < currentBid + 1}
+                className="w-2/3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-200 disabled:opacity-50"
+                disabled={
+                  !isMyTurn || 
+                  isPending || 
+                  isNaN(parseFloat(customBid)) || 
+                  parseFloat(customBid) * 1000000 <= currentBid ||
+                  parseFloat(customBid) * 1000000 > me.budgetLeft
+                }
                 isLoading={isPending && settings.bidding.currentBidderId !== currentUser.id}
-                onClick={() => handleBid(1)}
+                onClick={() => handleExactBid(parseFloat(customBid) * 1000000)}
               >
-                {dict.bidPlus1}
+                {dict.placeBid || "Place Bid"}
               </Button>
             </div>
             
@@ -190,7 +262,7 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
           <p className="text-sm font-bold text-slate-400 uppercase">{dict.opponentSquad}</p>
           <h3 className="text-xl font-bold text-slate-800">{opponent?.name}</h3>
           <div className={`flex items-center justify-end text-slate-600 font-black text-2xl mt-2 ${lang === 'ar' ? 'justify-start' : 'justify-end'}`}>
-            <Coins className={`w-6 h-6 ${lang === 'ar' ? 'ml-1' : 'mr-1'} text-slate-400`} /> {opponent?.budgetLeft}M
+            <Coins className={`w-6 h-6 ${lang === 'ar' ? 'ml-1' : 'mr-1'} text-slate-400`} /> {opponent ? formatMoney(opponent.budgetLeft) : '0M'}
           </div>
         </CardHeader>
         <CardContent className="p-4 space-y-2">

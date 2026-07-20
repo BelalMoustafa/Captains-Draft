@@ -111,7 +111,7 @@ export default function ManagerReveal({ room, currentUser, users: initialUsers, 
             <div className="flex flex-col items-center space-y-4 animate-in slide-in-from-bottom-8 duration-700 delay-300">
               <h2 className="text-2xl font-bold text-slate-700">{opponent?.name}</h2>
               <div className="flex items-center text-emerald-600 font-black text-xl bg-emerald-50 px-4 py-2 rounded-full shadow-sm">
-                <Coins className={`w-5 h-5 ${lang === 'ar' ? 'ml-1' : 'mr-1'}`} /> {opponent?.budgetLeft}M {dict.left}
+                <Coins className={`w-5 h-5 ${lang === 'ar' ? 'ml-1' : 'mr-1'}`} /> {opponent ? formatMoney(opponent.budgetLeft) : '0M'}
               </div>
               
               <Card className="w-72 h-96 border-4 border-slate-200 shadow-2xl bg-gradient-to-br from-white to-slate-50 overflow-hidden relative group transform transition-transform hover:scale-105">

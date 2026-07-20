@@ -13,7 +13,8 @@ export async function createRoom(lang: string, formData: FormData) {
   try {
     const name = formData.get('name') as string
     const format = parseInt(formData.get('format') as string, 10)
-    const budget = parseInt(formData.get('budget') as string, 10)
+    const budgetInput = parseInt(formData.get('budget') as string, 10)
+  const budget = budgetInput * 1000000 // Convert to actual number value
 
     if (!name || isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
 
@@ -186,21 +187,21 @@ export async function generateDraftPool(roomId: string, lang: string = 'en') {
   await pusherServer.trigger(`room-${room.code}`, 'draft-pool-generated', { settings })
 }
 
-export async function placeBid(roomId: string, userId: string, amount: number) {
+export async function placeBid(roomId: string, userId: string, customBidAmount: number) {
   const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
   if (!room) throw new Error('Room not found')
   
   const user = room.users.find(u => u.id === userId)
   if (!user) throw new Error('User not found')
-  if (user.budgetLeft < amount) throw new Error('Insufficient budget')
+  if (user.budgetLeft < customBidAmount) throw new Error('Insufficient budget')
   
   const settings = JSON.parse(room.settings)
   if (settings.bidding.turnId !== userId) throw new Error('Not your turn')
-  if (amount <= settings.bidding.currentBid) throw new Error('Bid must be higher than current bid')
+  if (customBidAmount <= settings.bidding.currentBid) throw new Error('Bid must be higher than current bid')
   
   const opponent = room.users.find(u => u.id !== userId)
   
-  settings.bidding.currentBid = amount
+  settings.bidding.currentBid = customBidAmount
   settings.bidding.currentBidderId = userId
   settings.bidding.turnId = opponent?.id
   
@@ -278,7 +279,7 @@ export async function assignManagers(roomId: string, lang: string = 'en') {
   
   if (user1.manager && user2.manager) return
   
-  const prompt = `You are a football expert. Based on the remaining budget of Player 1 (Budget: ${user1.budgetLeft}M) and Player 2 (Budget: ${user2.budgetLeft}M), assign a real-life football manager to each. High budget (e.g., >30M) = Elite manager (e.g., Guardiola, Ancelotti). Medium/Low budget = Mid-tier or local manager. Return STRICTLY valid JSON with this structure: { "player1Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." }, "player2Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." } }. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
+  const prompt = `You are a football expert. Based on the remaining budget of Player 1 (Budget: ${user1.budgetLeft / 1000000}M) and Player 2 (Budget: ${user2.budgetLeft / 1000000}M), assign a real-life football manager to each. High budget (e.g., >30M) = Elite manager (e.g., Guardiola, Ancelotti). Medium/Low budget = Mid-tier or local manager. Return STRICTLY valid JSON with this structure: { "player1Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." }, "player2Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." } }. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
   
   const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } })
   const result = await model.generateContent(prompt)
