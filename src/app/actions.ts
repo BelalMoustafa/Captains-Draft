@@ -9,72 +9,86 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function createRoom(lang: string, formData: FormData) {
-  const name = formData.get('name') as string
-  const format = parseInt(formData.get('format') as string, 10)
-  const budget = parseInt(formData.get('budget') as string, 10)
+  let code = ''
+  try {
+    const name = formData.get('name') as string
+    const format = parseInt(formData.get('format') as string, 10)
+    const budget = parseInt(formData.get('budget') as string, 10)
 
-  if (!name || isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
+    if (!name || isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
 
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+    code = Math.random().toString(36).substring(2, 8).toUpperCase()
 
-  const room = await prisma.room.create({
-    data: {
-      code,
-      settings: JSON.stringify({ format, budget }),
-    }
-  })
+    const room = await prisma.room.create({
+      data: {
+        code,
+        settings: JSON.stringify({ format, budget }),
+      }
+    })
 
-  const user = await prisma.user.create({
-    data: {
-      roomId: room.id,
-      name,
-      role: 'admin',
-      budgetLeft: budget,
-      squad: JSON.stringify([]),
-    }
-  })
+    const user = await prisma.user.create({
+      data: {
+        roomId: room.id,
+        name,
+        role: 'admin',
+        budgetLeft: budget,
+        squad: JSON.stringify([]),
+      }
+    })
 
-  const cookieStore = await cookies()
-  cookieStore.set('userId', user.id)
+    const cookieStore = await cookies()
+    cookieStore.set('userId', user.id)
+  } catch (error) {
+    console.error("🚨 CRITICAL ERROR IN CREATEROOM:", error)
+    throw error
+  }
 
   redirect(`/${lang}/room/${code}`)
 }
 
 export async function joinRoom(lang: string, formData: FormData) {
-  const name = formData.get('name') as string
-  const code = formData.get('code') as string
+  let finalCode = ''
+  try {
+    const name = formData.get('name') as string
+    const code = formData.get('code') as string
 
-  if (!name || !code) throw new Error('Name and code are required')
+    if (!name || !code) throw new Error('Name and code are required')
 
-  const room = await prisma.room.findUnique({
-    where: { code: code.toUpperCase() },
-    include: { users: true }
-  })
+    const room = await prisma.room.findUnique({
+      where: { code: code.toUpperCase() },
+      include: { users: true }
+    })
 
-  if (!room) throw new Error('Room not found')
-  if (room.users.length >= 2) throw new Error('Room is full')
-  if (room.status !== 'waiting') throw new Error('Game already started')
+    if (!room) throw new Error('Room not found')
+    if (room.users.length >= 2) throw new Error('Room is full')
+    if (room.status !== 'waiting') throw new Error('Game already started')
 
-  const settings = JSON.parse(room.settings)
+    const settings = JSON.parse(room.settings)
 
-  const user = await prisma.user.create({
-    data: {
-      roomId: room.id,
-      name,
-      role: 'player',
-      budgetLeft: settings.budget,
-      squad: JSON.stringify([]),
-    }
-  })
+    const user = await prisma.user.create({
+      data: {
+        roomId: room.id,
+        name,
+        role: 'player',
+        budgetLeft: settings.budget,
+        squad: JSON.stringify([]),
+      }
+    })
 
-  const cookieStore = await cookies()
-  cookieStore.set('userId', user.id)
+    const cookieStore = await cookies()
+    cookieStore.set('userId', user.id)
 
-  await pusherServer.trigger(`room-${room.code}`, 'player-joined', {
-    user: { id: user.id, name: user.name, role: user.role }
-  })
+    await pusherServer.trigger(`room-${room.code}`, 'player-joined', {
+      user: { id: user.id, name: user.name, role: user.role }
+    })
+    
+    finalCode = room.code
+  } catch (error) {
+    console.error("🚨 CRITICAL ERROR IN JOINROOM:", error)
+    throw error
+  }
 
-  redirect(`/${lang}/room/${room.code}`)
+  redirect(`/${lang}/room/${finalCode}`)
 }
 
 export async function startRps(roomId: string) {
