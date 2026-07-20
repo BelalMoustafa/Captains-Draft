@@ -17,15 +17,16 @@ export const metadata: Metadata = {
   description: "Real-time football auction and simulation game.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
   params
 }: Readonly<{
   children: React.ReactNode;
-  params: { lang: string }
+  params: Promise<{ lang: string }>
 }>) {
+  const { lang } = await params;
   return (
-    <html lang={params.lang} dir={params.lang === 'ar' ? 'rtl' : 'ltr'}>
+    <html lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col antialiased`}
       >
