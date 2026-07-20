@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState, useTransition } from 'react'
 import { pusherClient } from '@/lib/pusher-client'
 import { Button } from '@/components/ui/button'
