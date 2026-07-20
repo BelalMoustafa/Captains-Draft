@@ -37,7 +37,9 @@ export default function DraftGame({ room, currentUser, users: initialUsers, lang
     })
 
     return () => {
-      pusherClient.unsubscribe(`room-${room.code}`)
+      channel.unbind('draft-pool-generated')
+      channel.unbind('bid-updated')
+      channel.unbind('round-resolved')
     }
   }, [room.code])
 

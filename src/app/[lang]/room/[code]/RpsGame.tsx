@@ -46,7 +46,8 @@ export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
     })
 
     return () => {
-      pusherClient.unsubscribe(`room-${room.code}`)
+      channel.unbind('rps-choice-submitted')
+      channel.unbind('rps-result')
     }
   }, [room.code, currentUser.id])
 

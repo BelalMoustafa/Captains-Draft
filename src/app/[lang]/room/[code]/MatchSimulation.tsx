@@ -29,7 +29,7 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
     })
 
     return () => {
-      pusherClient.unsubscribe(`room-${room.code}`)
+      channel.unbind('match-simulated')
     }
   }, [room.code])
 

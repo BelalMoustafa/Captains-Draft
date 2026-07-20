@@ -32,7 +32,7 @@ export default function ManagerReveal({ room, currentUser, users: initialUsers, 
     })
 
     return () => {
-      pusherClient.unsubscribe(`room-${room.code}`)
+      channel.unbind('managers-assigned')
     }
   }, [room.code])
 
