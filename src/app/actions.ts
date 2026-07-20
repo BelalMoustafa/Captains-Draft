@@ -162,7 +162,7 @@ export async function generateDraftPool(roomId: string, lang: string = 'en') {
   
   const prompt = `Generate a draft pool for a ${settings.format}-a-side football game. Return a JSON array of objects. Each object must contain 'round', 'visiblePlayer' (name, position, club, rating), and 'hiddenPlayer' (name, position, club, rating). Use a mix of top-tier, mid-tier, and retired legends from top 5 European leagues and Egyptian Premier League. Do not output anything other than valid JSON. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
   
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", generationConfig: { responseMimeType: "application/json" } })
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } })
   const result = await model.generateContent(prompt)
   const response = result.response.text()
   
@@ -280,7 +280,7 @@ export async function assignManagers(roomId: string, lang: string = 'en') {
   
   const prompt = `You are a football expert. Based on the remaining budget of Player 1 (Budget: ${user1.budgetLeft}M) and Player 2 (Budget: ${user2.budgetLeft}M), assign a real-life football manager to each. High budget (e.g., >30M) = Elite manager (e.g., Guardiola, Ancelotti). Medium/Low budget = Mid-tier or local manager. Return STRICTLY valid JSON with this structure: { "player1Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." }, "player2Manager": { "name": "...", "tacticalStyle": "...", "tier": "..." } }. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
   
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", generationConfig: { responseMimeType: "application/json" } })
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } })
   const result = await model.generateContent(prompt)
   const response = JSON.parse(result.response.text())
   
@@ -330,7 +330,7 @@ Squad: ${user2.squad}
 
 Remember: Team 1 is ${user1.name} and Team 2 is ${user2.name}. Winner should be exactly '${user1.name}', '${user2.name}', or 'Draw'. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
 
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest", generationConfig: { responseMimeType: "application/json" } })
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } })
   const result = await model.generateContent(prompt)
   const response = JSON.parse(result.response.text())
   
