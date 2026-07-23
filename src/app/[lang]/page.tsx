@@ -61,10 +61,10 @@ export default async function Home({ params }: { params: Promise<{ lang: Locale 
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-3xl shadow-2xl shadow-emerald-500/5 relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-emerald-400 opacity-50 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center space-x-4 mb-6 relative z-10">
-                {session.user.image && <img src={session.user.image} className="w-16 h-16 rounded-2xl border border-slate-700 shadow-md" alt="Profile" />}
+                {session?.user?.image && <img src={session?.user?.image} className="w-16 h-16 rounded-2xl border-2 border-indigo-500/50 shadow-lg" alt="Profile" />}
                 <div>
-                  <h2 className="font-black text-xl text-white">{session.user.name}</h2>
-                  <p className="text-xs text-emerald-400 font-mono tracking-wider mt-1" dir="ltr">ID: {session.user.id}</p>
+                  <h2 className="font-black text-xl text-white">{session?.user?.name}</h2>
+                  <p className="text-xs text-emerald-400 font-mono tracking-wider mt-1" dir="ltr">ID: {session?.user?.id}</p>
                 </div>
               </div>
               <form action={async () => { "use server"; await signOut() }}>
@@ -74,13 +74,13 @@ export default async function Home({ params }: { params: Promise<{ lang: Locale 
 
             {/* Friends Card */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-3xl shadow-xl">
-              <FriendSystem userId={session.user.id as string} initialFriends={friends} initialRequests={requests} />
+              <FriendSystem userId={session?.user?.id as string} initialFriends={friends} initialRequests={requests} />
             </div>
           </div>
 
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl shadow-indigo-500/10">
-              <LobbyForm lang={lang} dict={dict.lobby} userId={session.user.id as string} />
+              <LobbyForm lang={lang} dict={dict.lobby} userId={session?.user?.id as string} />
             </div>
 
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-3xl shadow-xl">

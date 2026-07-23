@@ -327,7 +327,7 @@ export async function foldBid(roomId: string, userId: string) {
   await socketServer.trigger(`room-${room.code}`, 'round-resolved', { 
     settings, 
     status: newStatus,
-    users: updatedRoom?.users
+    users: updatedRoom?.participants
   })
 }
 
