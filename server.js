@@ -36,7 +36,7 @@ app.prepare().then(() => {
   })
 
   // Let Next.js handle everything else
-  server.all('(.*)', (req, res) => {
+  server.use((req, res) => {
     return handle(req, res)
   })
 
