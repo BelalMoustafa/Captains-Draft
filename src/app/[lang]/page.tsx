@@ -16,20 +16,21 @@ export default async function Home({ params }: { params: Promise<{ lang: Locale 
   let requests: any[] = []
   let history: any[] = []
 
-  if (session?.user) {
+  if (session?.user?.id) {
+    const userId = session.user.id as string;
     const friendships = await prisma.friendRequest.findMany({
-      where: { status: 'accepted', OR: [{ senderId: session.user.id }, { receiverId: session.user.id }] },
+      where: { status: 'accepted', OR: [{ senderId: userId }, { receiverId: userId }] },
       include: { sender: true, receiver: true }
     })
-    friends = friendships.map(f => f.senderId === session.user.id ? f.receiver : f.sender)
+    friends = friendships.map(f => f.senderId === userId ? f.receiver : f.sender)
 
     requests = await prisma.friendRequest.findMany({
-      where: { status: 'pending', receiverId: session.user.id },
+      where: { status: 'pending', receiverId: userId },
       include: { sender: true }
     })
 
     history = await prisma.roomParticipant.findMany({
-      where: { userId: session.user.id, room: { status: 'finished' } },
+      where: { userId: userId, room: { status: 'finished' } },
       include: { room: true }
     })
   }
@@ -73,13 +74,13 @@ export default async function Home({ params }: { params: Promise<{ lang: Locale 
 
             {/* Friends Card */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-3xl shadow-xl">
-              <FriendSystem userId={session.user.id} initialFriends={friends} initialRequests={requests} />
+              <FriendSystem userId={session.user.id as string} initialFriends={friends} initialRequests={requests} />
             </div>
           </div>
 
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl shadow-indigo-500/10">
-              <LobbyForm lang={lang} dict={dict.lobby} userId={session.user.id} />
+              <LobbyForm lang={lang} dict={dict.lobby} userId={session.user.id as string} />
             </div>
 
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-3xl shadow-xl">
