@@ -36,8 +36,9 @@ app.prepare().then(() => {
   })
 
   // Let Next.js handle everything else
-  server.use((req, res) => {
-    return handle(req, res)
+  server.all(/.*/, (req, res) => {
+    const parsedUrl = require('url').parse(req.url, true)
+    return handle(req, res, parsedUrl)
   })
 
   const port = process.env.PORT || 3000
