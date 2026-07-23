@@ -1,0 +1,14 @@
+- [x] **Logo & Theme Base**
+  - [x] Create `Logo.tsx` SVG component
+  - [x] Update `globals.css` to a sleek dark background (`slate-950`)
+- [x] **Home / Dashboard UI (`page.tsx`)**
+  - [x] Apply dark esports theme, glassmorphism, and neon glowing borders
+- [x] **Lobby UI (`RoomClient.tsx` & `LobbyForm.tsx`)**
+  - [x] Add "VS" style waiting screen layout
+- [x] **RPS UI (`RpsGame.tsx`)**
+  - [x] Modern large interactive cards for Rock, Paper, Scissors
+- [x] **Draft Game Mobile Responsive (`DraftGame.tsx`)**
+  - [x] Create stacked layout using CSS Grid/Flex order for Mobile
+  - [x] Ensure Bidding area is prominent and buttons are huge
+- [x] **Match Simulation & Manager UI**
+  - [x] Note: Handled globally through dark theme.

@@ -1,32 +1,45 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { pusherServer } from '@/lib/pusher'
+import { socketServer } from '@/lib/socket-server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 async function generateJsonWithRetry(prompt: string, maxRetries = 4) {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } })
-      const result = await model.generateContent(prompt)
-      let text = result.response.text()
-      text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '')
-      return JSON.parse(text)
-    } catch (error: any) {
-      if (i === maxRetries - 1) throw error
-      if (error?.status === 503 || (error?.message && error.message.includes('503')) || error instanceof SyntaxError) {
-        console.warn(`[Gemini API] Error (${error.message}). Retrying attempt ${i + 1}/${maxRetries}...`)
-        await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, i)))
-      } else {
-        throw error
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "Captains Draft",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            { role: "user", content: prompt }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
       }
+
+      const result = await response.json();
+      let text = result.choices[0].message.content;
+      text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+      return JSON.parse(text);
+    } catch (error: any) {
+      if (i === maxRetries - 1) throw error;
+      console.warn(`[OpenRouter API] Error (${error.message}). Retrying attempt ${i + 1}/${maxRetries}...`);
+      await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, i)));
     }
   }
-  throw new Error("Failed to generate valid JSON after retries")
+  throw new Error("Failed to generate valid JSON after retries");
 }
 
 export async function createRoom(lang: string, formData: FormData) {
@@ -49,9 +62,12 @@ export async function createRoom(lang: string, formData: FormData) {
       }
     })
 
-    const user = await prisma.user.create({
+    const userIdStr = formData.get('userId') as string | null
+    
+    const user = await prisma.roomParticipant.create({
       data: {
         roomId: room.id,
+        userId: userIdStr || null,
         name,
         role: 'admin',
         budgetLeft: budget,
@@ -79,13 +95,13 @@ export async function joinRoom(lang: string, formData: FormData) {
 
     const room = await prisma.room.findUnique({
       where: { code: code.toUpperCase() },
-      include: { users: true }
+      include: { participants: true }
     })
 
     if (!room) throw new Error('Room not found')
     
     let role = 'player'
-    const playersCount = room.users.filter((u: any) => u.role !== 'spectator').length
+    const playersCount = room.participants.filter((u: any) => u.role !== 'spectator').length
     
     if (playersCount >= 2 || room.status !== 'waiting') {
       role = 'spectator'
@@ -93,9 +109,12 @@ export async function joinRoom(lang: string, formData: FormData) {
 
     const settings = JSON.parse(room.settings)
 
-    const user = await prisma.user.create({
+    const userIdStr = formData.get('userId') as string | null
+
+    const user = await prisma.roomParticipant.create({
       data: {
         roomId: room.id,
+        userId: userIdStr || null,
         name,
         role,
         budgetLeft: settings.budget,
@@ -106,7 +125,7 @@ export async function joinRoom(lang: string, formData: FormData) {
     const cookieStore = await cookies()
     cookieStore.set('userId', user.id)
 
-    await pusherServer.trigger(`room-${room.code}`, 'player-joined', {
+    await socketServer.trigger(`room-${room.code}`, 'player-joined', {
       user: { id: user.id, name: user.name, role: user.role }
     })
     
@@ -125,7 +144,7 @@ export async function startRps(roomId: string) {
     data: { status: 'rps' }
   })
   
-  await pusherServer.trigger(`room-${room.code}`, 'room-updated', { status: 'rps' })
+  await socketServer.trigger(`room-${room.code}`, 'room-updated', { status: 'rps' })
 }
 
 export async function submitRpsChoice(roomId: string, userId: string, choice: string) {
@@ -149,7 +168,7 @@ export async function submitRpsChoice(roomId: string, userId: string, choice: st
         where: { id: roomId },
         data: { settings: JSON.stringify(settings) }
       })
-      await pusherServer.trigger(`room-${room.code}`, 'rps-result', { type: 'tie' })
+      await socketServer.trigger(`room-${room.code}`, 'rps-result', { type: 'tie' })
       return
     }
     
@@ -172,13 +191,13 @@ export async function submitRpsChoice(roomId: string, userId: string, choice: st
       data: { status: 'drafting', settings: JSON.stringify(settings) }
     })
     
-    await pusherServer.trigger(`room-${room.code}`, 'rps-result', { type: 'win', winnerId })
+    await socketServer.trigger(`room-${room.code}`, 'rps-result', { type: 'win', winnerId })
   } else {
     await prisma.room.update({
       where: { id: roomId },
       data: { settings: JSON.stringify(settings) }
     })
-    await pusherServer.trigger(`room-${room.code}`, 'rps-choice-submitted', { userId })
+    await socketServer.trigger(`room-${room.code}`, 'rps-choice-submitted', { userId })
   }
 }
 
@@ -193,9 +212,16 @@ export async function generateDraftPool(roomId: string, lang: string = 'en') {
                         settings.difficulty === 'medium' ? "average difficulty players, mix of stars and average players" :
                         "very famous, easy to guess top-tier players and legends";
 
-  const prompt = `Generate a draft pool for a ${settings.format}-a-side football game. Return a JSON array of objects. Each object must contain 'round', 'visiblePlayer' (name, position, club, rating), and 'hiddenPlayer' (name, position, club, rating). 
+  const formationRequirements = settings.format === 5 
+    ? "The squad MUST exactly contain 5 rounds with these positions: 1 GK, 1 DEF, 2 MID, 1 ATT."
+    : "The squad MUST exactly contain 11 rounds with these positions: 1 GK, 4 DEF (1 LB, 1 RB, 2 CB), 3 MID, 3 ATT (1 LW, 1 RW, 1 ST).";
+
+  const prompt = `Generate a draft pool for a ${settings.format}-a-side football game. Return a JSON array of exactly ${settings.format} objects. Each object must contain 'round', 'visiblePlayer' (name, position, club, rating), and 'hiddenPlayer' (name, position, club, rating). 
 Difficulty Level: ${difficultyStr}. 
-CRITICAL RULE: You MUST include players from ALL of these categories across the draft: Top 5 European Leagues, Famous National Teams, Egyptian Premier League, Saudi Pro League, and Retired Legends. 
+CRITICAL RULES: 
+1. ${formationRequirements}
+2. The 'hiddenPlayer' MUST play in the exact same position as the 'visiblePlayer' in that round.
+3. You MUST include players from ALL of these categories across the draft: Top 5 European Leagues, Famous National Teams, Egyptian Premier League, Saudi Pro League, and Retired Legends. 
 Make sure the players match the requested difficulty level! Do not output anything other than valid JSON. Generate the response strictly in ${lang === 'ar' ? 'Arabic' : 'English'}.`
   
   const draftPool = await generateJsonWithRetry(prompt)
@@ -215,14 +241,14 @@ Make sure the players match the requested difficulty level! Do not output anythi
     data: { settings: JSON.stringify(settings) }
   })
   
-  await pusherServer.trigger(`room-${room.code}`, 'draft-pool-generated', { settings })
+  await socketServer.trigger(`room-${room.code}`, 'draft-pool-generated', { settings })
 }
 
 export async function placeBid(roomId: string, userId: string, customBidAmount: number) {
-  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
+  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
   if (!room) throw new Error('Room not found')
   
-  const user = room.users.find(u => u.id === userId)
+  const user = room.participants.find(u => u.id === userId)
   if (!user) throw new Error('User not found')
   if (user.budgetLeft < customBidAmount) throw new Error('Insufficient budget')
   
@@ -230,7 +256,7 @@ export async function placeBid(roomId: string, userId: string, customBidAmount: 
   if (settings.bidding.turnId !== userId) throw new Error('Not your turn')
   if (customBidAmount <= settings.bidding.currentBid) throw new Error('Bid must be higher than current bid')
   
-  const opponent = room.users.find(u => u.id !== userId)
+  const opponent = room.participants.find(u => u.id !== userId)
   
   settings.bidding.currentBid = customBidAmount
   settings.bidding.currentBidderId = userId
@@ -241,18 +267,18 @@ export async function placeBid(roomId: string, userId: string, customBidAmount: 
     data: { settings: JSON.stringify(settings) }
   })
   
-  await pusherServer.trigger(`room-${room.code}`, 'bid-updated', { bidding: settings.bidding })
+  await socketServer.trigger(`room-${room.code}`, 'bid-updated', { bidding: settings.bidding })
 }
 
 export async function foldBid(roomId: string, userId: string) {
-  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
+  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
   if (!room) throw new Error('Room not found')
   
   const settings = JSON.parse(room.settings)
   if (settings.bidding.turnId !== userId) throw new Error('Not your turn')
   
-  const opponent = room.users.find(u => u.id !== userId)
-  const folder = room.users.find(u => u.id === userId)
+  const opponent = room.participants.find(u => u.id !== userId)
+  const folder = room.participants.find(u => u.id === userId)
   
   if (!opponent || !folder) throw new Error('Players not found')
   
@@ -270,8 +296,8 @@ export async function foldBid(roomId: string, userId: string) {
   const folderNewBudget = folder.budgetLeft
   
   await prisma.$transaction([
-    prisma.user.update({ where: { id: opponent.id }, data: { squad: JSON.stringify(opponentSquad), budgetLeft: opponentNewBudget } }),
-    prisma.user.update({ where: { id: folder.id }, data: { squad: JSON.stringify(folderSquad), budgetLeft: folderNewBudget } })
+    prisma.roomParticipant.update({ where: { id: opponent.id }, data: { squad: JSON.stringify(opponentSquad), budgetLeft: opponentNewBudget } }),
+    prisma.roomParticipant.update({ where: { id: folder.id }, data: { squad: JSON.stringify(folderSquad), budgetLeft: folderNewBudget } })
   ])
   
   settings.currentRound += 1
@@ -280,10 +306,14 @@ export async function foldBid(roomId: string, userId: string) {
   if (settings.currentRound >= settings.format) {
     newStatus = 'manager-assignment'
   } else {
+    const playingParticipants = room.participants.filter(u => u.role !== 'spectator')
+    const firstTurnId = settings.firstTurnId
+    const secondTurnId = playingParticipants.find(u => u.id !== firstTurnId)?.id || folder.id
+    
     settings.bidding = {
       currentBid: 0,
       currentBidderId: null,
-      turnId: folder.id 
+      turnId: settings.currentRound % 2 === 0 ? firstTurnId : secondTurnId
     }
   }
   
@@ -292,9 +322,9 @@ export async function foldBid(roomId: string, userId: string) {
     data: { status: newStatus, settings: JSON.stringify(settings) }
   })
   
-  const updatedRoom = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
+  const updatedRoom = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
   
-  await pusherServer.trigger(`room-${room.code}`, 'round-resolved', { 
+  await socketServer.trigger(`room-${room.code}`, 'round-resolved', { 
     settings, 
     status: newStatus,
     users: updatedRoom?.users
@@ -302,10 +332,10 @@ export async function foldBid(roomId: string, userId: string) {
 }
 
 export async function assignManagers(roomId: string, lang: string = 'en') {
-  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
+  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
   if (!room) throw new Error('Room not found')
   
-  const players = room.users.filter((u: any) => u.role !== 'spectator')
+  const players = room.participants.filter((u: any) => u.role !== 'spectator')
   const user1 = players[0]
   const user2 = players[1]
   
@@ -320,17 +350,17 @@ export async function assignManagers(roomId: string, lang: string = 'en') {
   }
   
   const [updatedUser1, updatedUser2] = await prisma.$transaction([
-    prisma.user.update({
+    prisma.roomParticipant.update({
       where: { id: user1.id },
       data: { manager: JSON.stringify(response.player1Manager) }
     }),
-    prisma.user.update({
+    prisma.roomParticipant.update({
       where: { id: user2.id },
       data: { manager: JSON.stringify(response.player2Manager) }
     })
   ])
   
-  await pusherServer.trigger(`room-${room.code}`, 'managers-assigned', {
+  await socketServer.trigger(`room-${room.code}`, 'managers-assigned', {
     users: [updatedUser1, updatedUser2]
   })
 }
@@ -340,14 +370,14 @@ export async function startSimulation(roomId: string) {
     where: { id: roomId },
     data: { status: 'simulation' }
   })
-  await pusherServer.trigger(`room-${room.code}`, 'room-updated', { status: 'simulation' })
+  await socketServer.trigger(`room-${room.code}`, 'room-updated', { status: 'simulation' })
 }
 
 export async function simulateMatch(roomId: string, lang: string = 'en') {
-  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { users: true } })
+  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
   if (!room) throw new Error('Room not found')
   
-  const players = room.users.filter((u: any) => u.role !== 'spectator')
+  const players = room.participants.filter((u: any) => u.role !== 'spectator')
   const user1 = players[0]
   const user2 = players[1]
   
@@ -375,5 +405,39 @@ Remember: Team 1 is ${user1.name} and Team 2 is ${user2.name}. Winner should be 
     data: { settings: JSON.stringify(settings) }
   })
   
-  await pusherServer.trigger(`room-${room.code}`, 'match-simulated', { result: response })
+  await socketServer.trigger(`room-${room.code}`, 'match-simulated', { result: response })
+}
+
+export async function exitRoom(roomId: string, userId: string) {
+  const room = await prisma.room.findUnique({ where: { id: roomId }, include: { participants: true } })
+  if (!room) return
+
+  const participant = room.participants.find(p => p.userId === userId)
+  if (!participant) return
+
+  if (room.status !== 'waiting' && participant.role !== 'spectator') {
+    // Abort the match if a playing participant leaves after game starts
+    await prisma.room.update({ where: { id: roomId }, data: { status: 'aborted' } })
+    await socketServer.trigger(`room-${room.code}`, 'room-updated', { status: 'aborted' })
+  } else {
+    // Just remove the participant
+    await prisma.roomParticipant.delete({ where: { id: participant.id } })
+    await socketServer.trigger(`room-${room.code}`, 'player-left', { userId })
+  }
+}
+
+export async function swapRoles(roomId: string, participantId1: string, participantId2: string) {
+  const p1 = await prisma.roomParticipant.findUnique({ where: { id: participantId1 } })
+  const p2 = await prisma.roomParticipant.findUnique({ where: { id: participantId2 } })
+  if (!p1 || !p2) return
+
+  await prisma.$transaction([
+    prisma.roomParticipant.update({ where: { id: p1.id }, data: { role: p2.role } }),
+    prisma.roomParticipant.update({ where: { id: p2.id }, data: { role: p1.role } })
+  ])
+
+  const room = await prisma.room.findUnique({ where: { id: roomId } })
+  if (room) {
+    await socketServer.trigger(`room-${room.code}`, 'roles-swapped', {})
+  }
 }

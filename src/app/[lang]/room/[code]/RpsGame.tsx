@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { submitRpsChoice } from '@/app/actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { pusherClient } from '@/lib/pusher-client'
+import { socketClient } from '@/lib/socket-client'
 import { Loader2 } from 'lucide-react'
 
 export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
@@ -26,15 +26,15 @@ export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
   }
 
   useEffect(() => {
-    const channel = pusherClient.subscribe(`room-${room.code}`)
+    socketClient.emit('join-room', `room-${room.code}`); const channel = socketClient;
     
-    channel.bind('rps-choice-submitted', (data: { userId: string }) => {
+    channel.on('rps-choice-submitted', (data: { userId: string }) => {
       if (data.userId !== currentUser.id) {
         setOpponentReady(true)
       }
     })
 
-    channel.bind('rps-result', (data: { type: string, winnerId?: string }) => {
+    channel.on('rps-result', (data: { type: string, winnerId?: string }) => {
       setResult(data)
       if (data.type === 'tie') {
         setTimeout(() => {
@@ -46,8 +46,8 @@ export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
     })
 
     return () => {
-      channel.unbind('rps-choice-submitted')
-      channel.unbind('rps-result')
+      channel.off('rps-choice-submitted')
+      channel.off('rps-result')
     }
   }, [room.code, currentUser.id])
 
@@ -60,74 +60,78 @@ export default function RpsGame({ room, currentUser, users, lang, dict }: any) {
   }
 
   return (
-    <Card className="w-full max-w-3xl border-none shadow-2xl bg-white/90 backdrop-blur-md overflow-hidden">
-      <CardHeader className="text-center pb-6 bg-slate-50 border-b border-slate-100">
-        <CardTitle className="text-4xl font-black text-slate-800">
+    <Card className="w-full max-w-4xl border border-slate-800 shadow-2xl shadow-indigo-500/10 bg-slate-900/50 backdrop-blur-xl rounded-3xl overflow-hidden relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-amber-500" />
+      <CardHeader className="text-center pb-6 pt-10 border-b border-slate-800/50">
+        <CardTitle className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
           {dict.title}
         </CardTitle>
-        <p className="text-slate-500 font-medium">{dict.subtitle}</p>
+        <p className="text-slate-400 font-bold tracking-widest uppercase text-sm mt-2">{dict.subtitle}</p>
       </CardHeader>
       
-      <CardContent className="p-8">
+      <CardContent className="p-12">
         {result ? (
           <div className="text-center py-12 space-y-6 animate-in zoom-in duration-300">
             {result.type === 'tie' ? (
               <>
-                <h2 className="text-5xl font-black text-amber-500">{dict.tie}</h2>
-                <p className="text-slate-500 text-lg">{dict.tieSub}</p>
+                <h2 className="text-6xl font-black text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">{dict.tie}</h2>
+                <p className="text-slate-400 text-xl font-medium tracking-wide">{dict.tieSub}</p>
               </>
             ) : (
               <>
-                <h2 className="text-5xl font-black text-emerald-600">
-                  {result.winnerId === currentUser.id ? dict.youWon : `${opponent?.name}${dict.opponentWon}`}
+                <h2 className="text-5xl md:text-6xl font-black text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+                  {result.winnerId === currentUser.id ? dict.youWon : `${opponent?.name} ${dict.opponentWon}`}
                 </h2>
-                <p className="text-slate-500 text-lg">
+                <p className="text-slate-300 text-xl font-medium tracking-wider">
                   {result.winnerId === currentUser.id ? dict.youFirstPick : dict.theyFirstPick}
                 </p>
               </>
             )}
           </div>
         ) : (
-          <div className="space-y-12">
+          <div className="space-y-16">
             
-            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <div className="text-center w-1/3">
-                <p className="text-sm font-bold text-slate-400 uppercase">{dict.you}</p>
-                <p className="text-lg font-bold text-slate-800">{currentUser.name}</p>
-                {choice && <span className="inline-block mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">{dict.ready}</span>}
+            <div className="relative flex justify-between items-center bg-slate-950/50 p-6 rounded-3xl border border-slate-800 shadow-inner">
+              <div className="text-center w-1/3 z-10">
+                <p className="text-xs font-bold text-indigo-400 uppercase tracking-[0.2em] mb-2">{dict.you}</p>
+                <p className="text-2xl font-black text-white truncate px-2">{currentUser.name}</p>
+                {choice && <span className="inline-block mt-3 px-4 py-1.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-bold rounded-full tracking-widest uppercase shadow-[0_0_10px_rgba(99,102,241,0.3)]">{dict.ready}</span>}
               </div>
-              <div className="text-4xl font-black text-slate-300">VS</div>
-              <div className="text-center w-1/3">
-                <p className="text-sm font-bold text-slate-400 uppercase">{dict.opponent}</p>
-                <p className="text-lg font-bold text-slate-800">{opponent?.name}</p>
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                 <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-400 to-orange-600 italic">VS</span>
+              </div>
+              <div className="text-center w-1/3 z-10">
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-2">{dict.opponent}</p>
+                <p className="text-2xl font-black text-white truncate px-2">{opponent?.name}</p>
                 {opponentReady ? (
-                  <span className="inline-block mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">{dict.ready}</span>
+                  <span className="inline-block mt-3 px-4 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-full tracking-widest uppercase shadow-[0_0_10px_rgba(16,185,129,0.3)]">{dict.ready}</span>
                 ) : (
-                  <span className="inline-flex items-center mt-2 px-3 py-1 bg-slate-100 text-slate-500 text-xs font-bold rounded-full">
+                  <span className="inline-flex items-center mt-3 px-4 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded-full tracking-widest uppercase">
                     <Loader2 className="w-3 h-3 mx-1 animate-spin" /> {dict.thinking}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
-                { id: 'rock', icon: '🪨', label: dict.rock, color: 'hover:border-stone-500 hover:bg-stone-50' },
-                { id: 'paper', icon: '📄', label: dict.paper, color: 'hover:border-blue-500 hover:bg-blue-50' },
-                { id: 'scissors', icon: '✂️', label: dict.scissors, color: 'hover:border-red-500 hover:bg-red-50' }
+                { id: 'rock', icon: '🪨', label: dict.rock, glow: 'hover:shadow-[0_0_30px_rgba(168,162,158,0.3)]', border: 'hover:border-stone-500', active: 'border-stone-500 bg-stone-900/50 shadow-[0_0_30px_rgba(168,162,158,0.4)]' },
+                { id: 'paper', icon: '📄', label: dict.paper, glow: 'hover:shadow-[0_0_30px_rgba(56,189,248,0.3)]', border: 'hover:border-sky-500', active: 'border-sky-500 bg-sky-900/50 shadow-[0_0_30px_rgba(56,189,248,0.4)]' },
+                { id: 'scissors', icon: '✂️', label: dict.scissors, glow: 'hover:shadow-[0_0_30px_rgba(248,113,113,0.3)]', border: 'hover:border-red-500', active: 'border-red-500 bg-red-900/50 shadow-[0_0_30px_rgba(248,113,113,0.4)]' }
               ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleChoice(item.id)}
                   disabled={!!choice || isPending}
-                  className={`flex flex-col items-center justify-center p-8 rounded-3xl border-2 border-slate-100 bg-white shadow-sm transition-all duration-200 
-                    ${!choice && !isPending ? item.color + ' active:scale-95 cursor-pointer hover:shadow-md' : ''}
-                    ${choice === item.id ? 'border-emerald-500 bg-emerald-50 scale-105 shadow-emerald-100/50' : ''}
-                    ${(choice && choice !== item.id) || (isPending && choice !== item.id) ? 'opacity-40 scale-95 grayscale' : ''}
+                  className={`flex flex-col items-center justify-center p-10 rounded-3xl border border-slate-700 bg-slate-900/80 transition-all duration-300 relative overflow-hidden group
+                    ${!choice && !isPending ? `${item.glow} ${item.border} active:scale-95 cursor-pointer` : ''}
+                    ${choice === item.id ? `${item.active} scale-105 z-10` : ''}
+                    ${(choice && choice !== item.id) || (isPending && choice !== item.id) ? 'opacity-30 scale-95 grayscale' : ''}
                   `}
                 >
-                  <span className="text-6xl mb-4">{item.icon}</span>
-                  <span className="font-bold text-slate-700 capitalize text-lg">{item.label}</span>
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity ${choice === item.id ? 'opacity-20' : ''} bg-current`} />
+                  <span className="text-7xl mb-6 relative z-10 filter drop-shadow-xl transition-transform group-hover:scale-110">{item.icon}</span>
+                  <span className="font-black tracking-widest text-white uppercase text-lg relative z-10">{item.label}</span>
                 </button>
               ))}
             </div>

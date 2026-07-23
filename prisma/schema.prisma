@@ -1,29 +1,101 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("TURSO_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String  @map("user_id")
+  type               String
+  provider           String
+  providerAccountId  String  @map("provider_account_id")
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+ 
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@map("sessions")
+}
+ 
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  participations RoomParticipant[]
+  
+  sentRequests     FriendRequest[] @relation("FriendSender")
+  receivedRequests FriendRequest[] @relation("FriendReceiver")
+ 
+  @@map("users")
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     String   @default("pending") // pending, accepted
+  createdAt  DateTime @default(now())
+
+  sender     User     @relation("FriendSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("FriendReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+ 
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model Room {
   id        String   @id @default(uuid())
-  code      String   @unique // 6-chars
-  status    String   @default("waiting") // waiting, rps, drafting, finished
-  settings  String   // JSON string: { budget: 100000000, format: 5 | 11 }
-  users     User[]
+  code      String   @unique
+  status    String   @default("waiting") // waiting, rps, drafting, finished, aborted
+  settings  String   @db.Text // JSON string
+  participants RoomParticipant[]
   createdAt DateTime @default(now())
 }
 
-model User {
+model RoomParticipant {
   id         String  @id @default(uuid())
   roomId     String
-  room       Room    @relation(fields: [roomId], references: [id])
+  room       Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  userId     String? // Link to authenticated User
+  user       User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   name       String
-  role       String  // admin, player
+  role       String  // admin, player, spectator
   budgetLeft Int
-  squad      String  // JSON string array of players
-  manager    String? // JSON string
+  squad      String  @db.Text // JSON string array
+  manager    String? @db.Text // JSON string
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { assignManagers, startSimulation } from '@/app/actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { pusherClient } from '@/lib/pusher-client'
+import { socketClient } from '@/lib/socket-client'
 import { Loader2, Coins, Briefcase, PlayCircle } from 'lucide-react'
 
 export default function ManagerReveal({ room, currentUser, users: initialUsers, lang, dict }: any) {
@@ -25,14 +25,14 @@ export default function ManagerReveal({ room, currentUser, users: initialUsers, 
   }
 
   useEffect(() => {
-    const channel = pusherClient.subscribe(`room-${room.code}`)
+    socketClient.emit('join-room', `room-${room.code}`); const channel = socketClient;
     
-    channel.bind('managers-assigned', (data: { users: any[] }) => {
+    channel.on('managers-assigned', (data: { users: any[] }) => {
       setUsers(data.users)
     })
 
     return () => {
-      channel.unbind('managers-assigned')
+      channel.off('managers-assigned')
     }
   }, [room.code])
 

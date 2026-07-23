@@ -10,7 +10,7 @@ export default async function RoomPage({ params }: { params: Promise<{ lang: Loc
   
   const room = await prisma.room.findUnique({
     where: { code: code.toUpperCase() },
-    include: { users: true }
+    include: { participants: true }
   })
 
   if (!room) redirect('/')
@@ -20,7 +20,7 @@ export default async function RoomPage({ params }: { params: Promise<{ lang: Loc
 
   if (!userId) redirect('/')
 
-  const currentUser = room.users.find(u => u.id === userId)
+  const currentUser = room.participants.find(u => u.id === userId)
   if (!currentUser) redirect('/')
 
   const dict = await getDictionary(lang)
@@ -33,7 +33,7 @@ export default async function RoomPage({ params }: { params: Promise<{ lang: Loc
   return (
     <RoomClient 
       room={serializedRoom} 
-      users={room.users} 
+      users={room.participants} 
       currentUser={currentUser} 
       lang={lang}
       dict={dict}

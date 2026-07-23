@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { simulateMatch } from '@/app/actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { pusherClient } from '@/lib/pusher-client'
+import { socketClient } from '@/lib/socket-client'
 import { Loader2, Trophy, Target, FileText, Home } from 'lucide-react'
 import Link from 'next/link'
 
@@ -22,14 +22,14 @@ export default function MatchSimulation({ room, currentUser, users, lang, dict }
   }
 
   useEffect(() => {
-    const channel = pusherClient.subscribe(`room-${room.code}`)
+    socketClient.emit('join-room', `room-${room.code}`); const channel = socketClient;
     
-    channel.bind('match-simulated', (data: { result: any }) => {
+    channel.on('match-simulated', (data: { result: any }) => {
       setResult(data.result)
     })
 
     return () => {
-      channel.unbind('match-simulated')
+      channel.off('match-simulated')
     }
   }, [room.code])
 
