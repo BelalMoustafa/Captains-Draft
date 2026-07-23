@@ -12,7 +12,7 @@ import DraftGame from './DraftGame'
 import ManagerReveal from './ManagerReveal'
 import MatchSimulation from './MatchSimulation'
 
-export default function RoomClient({ room: initialRoom, users: initialUsers, currentUser, lang, dict }: any) {
+export default function RoomClient({ room: initialRoom, users: initialUsers, currentUser, friends, lang, dict }: any) {
   const [room, setRoom] = useState(initialRoom)
   const [users, setUsers] = useState(initialUsers)
   const [isPending, startTransition] = useTransition()
@@ -221,6 +221,25 @@ export default function RoomClient({ room: initialRoom, users: initialUsers, cur
                         <ArrowRightLeft className="w-3 h-3 mr-1" /> Swap
                       </Button>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentUser.role === 'admin' && !players[1] && friends && friends.length > 0 && (
+            <div className="pt-8 border-t border-slate-800/50">
+              <h4 className="font-bold text-xs text-slate-500 mb-4 uppercase tracking-[0.2em] text-center">Invite Friends</h4>
+              <div className="flex flex-wrap justify-center gap-3">
+                {friends.map((f: any) => (
+                  <div key={f.id} className="flex items-center bg-slate-900/80 border border-slate-700 p-2 pl-4 pr-2 rounded-full gap-3 shadow-inner">
+                    <span className="text-sm font-bold text-slate-300">{f.name}</span>
+                    <Button size="sm" className="h-7 text-xs bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-full transition-colors" onClick={() => {
+                      socketClient.emit('invite-friend', { targetId: f.id, senderName: currentUser.name, roomCode: room.code })
+                      alert('Invite sent!')
+                    }}>
+                      <UserPlus className="w-3 h-3 mr-1" /> Invite
+                    </Button>
                   </div>
                 ))}
               </div>

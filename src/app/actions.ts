@@ -45,13 +45,15 @@ async function generateJsonWithRetry(prompt: string, maxRetries = 4) {
 export async function createRoom(lang: string, formData: FormData) {
   let code = ''
   try {
-    const name = formData.get('name') as string
+    const session = await import('@/auth').then(m => m.auth())
+    if (!session?.user?.id) throw new Error('Must be logged in')
+    const name = session.user.name || 'Player'
     const format = parseInt(formData.get('format') as string, 10)
     const budgetInput = parseInt(formData.get('budget') as string, 10)
     const difficulty = formData.get('difficulty') as string || 'normal'
     const budget = budgetInput * 1000000 // Convert to actual number value
 
-    if (!name || isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
+    if (isNaN(format) || isNaN(budget)) throw new Error('Invalid input')
 
     code = Math.random().toString(36).substring(2, 8).toUpperCase()
 
@@ -62,7 +64,7 @@ export async function createRoom(lang: string, formData: FormData) {
       }
     })
 
-    const userIdStr = formData.get('userId') as string | null
+    const userIdStr = session.user.id
     
     const user = await prisma.roomParticipant.create({
       data: {
@@ -88,10 +90,12 @@ export async function createRoom(lang: string, formData: FormData) {
 export async function joinRoom(lang: string, formData: FormData) {
   let finalCode = ''
   try {
-    const name = formData.get('name') as string
+    const session = await import('@/auth').then(m => m.auth())
+    if (!session?.user?.id) throw new Error('Must be logged in')
+    const name = session.user.name || 'Player'
     const code = formData.get('code') as string
 
-    if (!name || !code) throw new Error('Name and code are required')
+    if (!code) throw new Error('Code is required')
 
     const room = await prisma.room.findUnique({
       where: { code: code.toUpperCase() },
@@ -109,12 +113,12 @@ export async function joinRoom(lang: string, formData: FormData) {
 
     const settings = JSON.parse(room.settings)
 
-    const userIdStr = formData.get('userId') as string | null
+    const userIdStr = session.user.id
 
     const user = await prisma.roomParticipant.create({
       data: {
         roomId: room.id,
-        userId: userIdStr || null,
+        userId: userIdStr,
         name,
         role,
         budgetLeft: settings.budget,

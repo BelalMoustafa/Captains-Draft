@@ -22,6 +22,12 @@ app.prepare().then(() => {
     socket.on('leave-room', (roomId) => {
       socket.leave(roomId)
     })
+    socket.on('register-user', (userId) => {
+      socket.join(`user-${userId}`)
+    })
+    socket.on('invite-friend', ({ targetId, senderName, roomCode }) => {
+      io.to(`user-${targetId}`).emit('receive-invite', { senderName, roomCode })
+    })
   })
 
   server.use(express.json())
