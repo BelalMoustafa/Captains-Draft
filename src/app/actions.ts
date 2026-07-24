@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { socketServer } from '@/lib/socket-server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { auth } from '@/auth'
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 async function generateJsonWithRetry(prompt: string, maxRetries = 4) {
@@ -45,7 +46,7 @@ async function generateJsonWithRetry(prompt: string, maxRetries = 4) {
 export async function createRoom(lang: string, formData: FormData) {
   let code = ''
   try {
-    const session = await import('@/auth').then(m => m.auth())
+    const session = await auth()
     if (!session?.user?.id) throw new Error('Must be logged in')
     const name = session.user.name || 'Player'
     const format = parseInt(formData.get('format') as string, 10)
@@ -90,7 +91,7 @@ export async function createRoom(lang: string, formData: FormData) {
 export async function joinRoom(lang: string, formData: FormData) {
   let finalCode = ''
   try {
-    const session = await import('@/auth').then(m => m.auth())
+    const session = await auth()
     if (!session?.user?.id) throw new Error('Must be logged in')
     const name = session.user.name || 'Player'
     const code = formData.get('code') as string
